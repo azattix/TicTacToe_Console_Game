@@ -3,52 +3,108 @@ import java.util.Scanner;
 import java.io.IOException;
 
 class Board {
-
+ 
 	private int[] squares;
-	private boolean won;
+	private int boardSize; 
+	private int squareNumber;
 
-	Board() {
- 		squares = new int[9];
- 		Arrays.fill(squares, -1);
- 		won = false;
+	public Board(int boardSize) {
+		this.boardSize = boardSize;
+		squareNumber = boardSize * boardSize;
+		squares = new int[squareNumber];
+ 		Arrays.fill(squares, -1); 
 	}
 
-	private String markupSquare(int i) {
+	public String markupSquare(int i) {
 		return (squares[i] == 1) ? "x": (squares[i] == 0) ? "o": " ";
 	}
 
-	public void printBoard() {
-		System.out.println(markupSquare(0) + " | " + markupSquare(1) + " | " + markupSquare(2));
-		System.out.println(markupSquare(3) + " | " + markupSquare(4) + " | " + markupSquare(5));
-		System.out.println(markupSquare(6) + " | " + markupSquare(7) + " | " + markupSquare(8));
-	}
-
 	public boolean fillSquare(int i, int player) {
-		if (i < 1 || i > 9) {
-			System.out.println("Warning! Valid numbers are from 1 to 9!");
+		if (i < 1 || i > squareNumber) {
+			System.out.println("Warning! Valid numbers are from 1 to " + squareNumber + "!");
 			return false;
 		}
 
 		if (squares[i-1] != -1) {
-			System.out.println("Warning! Please, choose another square!");
+			System.out.println("Warning! This square is busy!");
 			return false;
-		} 
-
-		if (won) {
-			return false;   
 		}
 
 		squares[i-1] = player;
 
-		int winner = Helper.calculateWinner(squares);
+		return true;
+	}
 
-	    if (winner != -1) {
-	      	System.out.println("Winner: " + (winner == 1 ? "X" : "O"));
-	      	won = true;
-	      	return false;
+	public void printBoard() {
+		String[] row = new String[boardSize];
+
+		for (int i = 0; i < squareNumber; i++) {
+			int col = i % boardSize;
+			row[col] = markupSquare(i);
+
+			if (col == (boardSize-1)) {
+				System.out.println(String.join(" | ", row));
+			}
+		}
+	}
+
+	public int[] getSquares() {
+		return squares;
+	}
+}
+
+class Winner {
+	private int[][] lines;
+
+	public Winner(int cols) {
+		int rows = cols*2+2;
+		setLines(rows, cols);
+	}
+
+	public void setLines(int rows, int cols) { 
+		lines = new int[rows][cols];
+
+		int n = 0;
+
+		for (int i = 0; i < rows; i++) {
+			for (int j = 0; j < cols; j++) {
+				if (i < cols) {
+					n++;
+				} else if (i < cols*2) {
+					n = lines[j][i % cols];
+				} else if (i == (cols*2)) {
+					n = lines[j][j];
+				} else {
+					n = lines[j][cols-j-1];
+				}
+
+				lines[i][j] = n;
+			}
+		}
+	}
+
+	public int calculateWinner(int[] squares) {
+		int cols = lines[0].length;
+
+		for (int i = 0; i < lines.length; i++) {
+			boolean isWinner = true;
+			int num = lines[i][0] - 1;
+
+			for (int j = 1; j < cols; j++) {
+				int n = lines[i][j];
+
+				if (squares[num] != squares[n-1] || squares[num] == -1) {
+					isWinner = false;
+					break;
+				}
+			}
+
+			if (isWinner == true) {
+				return squares[num];
+			}
 		}
 
-		return true;
+		return -1;
 	}
 }
 
@@ -82,31 +138,6 @@ final class Helper {
 			return false;  
 		}  
 	} 
-
-	public static int calculateWinner(int[] squares) {
-		int[][] lines = {
-			{ 1, 2, 3 }, 
-			{ 4, 5, 6 },
-			{ 7, 8, 9 },
-			{ 1, 4, 7 },
-			{ 2, 5, 8 },
-			{ 3, 6, 9 },
-			{ 1, 5, 9 },
-			{ 3, 5, 7 }
-		};
-
-		for (int i = 0; i < lines.length; i++) {
-			int a = lines[i][0] - 1;
-			int b = lines[i][1] - 1;
-			int c = lines[i][2] - 1;
-
-			if (squares[a] != -1 && squares[a] == squares[b] && squares[a] == squares[c]) {
-		      	return squares[a];
-		    }
-		}
-
-		return -1;
-	}
 }
 
 class Game {
@@ -114,9 +145,11 @@ class Game {
 	private Board board;
 	private Player player;
 	private Scanner in;
+	private Winner winner;
+	private int tries;
 
-	Game(Board board, Player player) {
-		this.board = board;
+	Game(Player player) {
+		this.board = null;
  		this.player = player;
  		this.in = new Scanner(System.in);
 	}
@@ -125,35 +158,67 @@ class Game {
 		board.printBoard();
 		player.printInfo();
 	}
-  
-	public void run() {
-		refresh();
 
+	public void init() {
 		String input = "";
 
-        while (!input.equals("exit")) {
-			System.out.print("Your choice: ");
+        while (true) {
+			System.out.print("Welcome! Choose board size: ");
         	input = in.nextLine(); 
 
         	if (Helper.isNumeric(input)) {
-        		System.out.print("\n\n");
+        		int boardSize = Integer.parseInt(input);
+        		this.tries = boardSize*boardSize;
+        		this.board = new Board(boardSize);
+        		this.winner = new Winner(boardSize);
+        		break;
+        	} 
+        }
+	}
 
-        		int squareNumber = Integer.parseInt(input);
-        		int currentPlayer = player.isX() ? 1: 0;
+	public void run() {
+		init();
 
-        		if (board.fillSquare(squareNumber, currentPlayer)) {
-					player.changePlayer();
+		refresh();
+
+		String input = ""; 
+
+        while (!input.equals("exit")) {
+        	int win = winner.calculateWinner(board.getSquares());
+
+        	if (win == -1) {
+        		if (tries == 0) {
+        			System.out.println("Draw");
+        			break;
         		}
 
-				refresh(); 
-        	} 
+        		System.out.print("Your choice: ");
+	        	input = in.nextLine(); 
+
+	        	if (Helper.isNumeric(input)) {
+	        		System.out.print("\n\n");
+
+	        		int boardSize = Integer.parseInt(input);
+	        		int currentPlayer = player.isX() ? 1: 0;
+
+	        		if (board.fillSquare(boardSize, currentPlayer)) {
+						player.changePlayer();
+						tries--;
+	        		}
+
+					refresh(); 
+	        	} 
+        	} else {
+        		System.out.println("Winner: " + ((win == 1) ? "x": "o"));
+        		break;
+        	}
         }
 	}
 }
 
 public class TicTacToe {
 	public static void main(String[] args) {
-		Game game = new Game(new Board(), new Player());
+		Game game = new Game(new Player());
 		game.run(); 
 	}
 }
