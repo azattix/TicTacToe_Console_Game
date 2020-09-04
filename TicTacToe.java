@@ -6,15 +6,15 @@ class Board {
  
 	private int[] squares;
 	private int boardSize; 
+	private int emptySquaresCount;
+	private boolean xIsNext;
 
 	public Board(int boardSize) {
 		this.boardSize = boardSize;
-		squares = new int[boardSize * boardSize];
+ 		this.emptySquaresCount = boardSize * boardSize;
+ 		this.xIsNext = true;
+		this.squares = new int[emptySquaresCount];
  		Arrays.fill(squares, -1); 
-	}
-
-	public String markupSquare(int i) {
-		return (squares[i] == -1) ? " ": (squares[i] == 1) ? "X": "O";
 	}
 
 	public boolean fillSquare(int i, int playerId) {
@@ -26,15 +26,21 @@ class Board {
 		if (squares[i-1] != -1) {
 			System.out.println("Warning! This square is busy!");
 			return false;
-		}
+		} 
 
 		squares[i-1] = playerId;
 
 		return true;
 	}
 
+	public String markupSquare(int i) {
+		return (squares[i] == -1) ? " ": (squares[i] == 1) ? "X": "O";
+	}
+
 	public void printBoard() {
 		String[] row = new String[boardSize];
+
+		System.out.println();
 
 		for (int i = 0; i < squares.length; i++) {
 			int col = i % boardSize;
@@ -46,6 +52,14 @@ class Board {
 		}
 	}
 
+	public void setEmptySquaresCount(int i) {
+		this.emptySquaresCount += i;
+	}
+
+	public int getEmptySquaresCount() {
+		return this.emptySquaresCount;
+	}
+
 	public int[] getSquares() {
 		return squares;
 	}
@@ -53,15 +67,16 @@ class Board {
 
 class Winner {
 	private int[][] lines; 
+	private int result;
 
 	public Winner(int cols) {
 		int rows = cols*2+2;
+		lines = new int[rows][cols];
 		setLines(rows, cols);
+		result = -1;
 	} 
 
 	public void setLines(int rows, int cols) { 
-		lines = new int[rows][cols];
-
 		int n = 0;
 
 		for (int i = 0; i < rows; i++) {
@@ -98,54 +113,45 @@ class Winner {
 			}
 
 			if (isWinner == true) {
-				return squares[num];
+				result = squares[num];
+				break;
 			}
 		}
 
-		return -1;
+		return result;
+	}
+
+	public void showResult() {
+		System.out.println("Winner: " + ((result == -1) ? "Draw": (result==1) ? "X": "O"));
+	}
+
+	public int getResult() {
+		return result;
 	}
 }
 
 class Player {
 
 	private boolean xIsNext;
-	private int maxMoves;
 
 	public Player(int maxMoves) {
 		xIsNext = true;
-		this.maxMoves = maxMoves;
-	}
-
-	public void decrementMoves() {
-		maxMoves--;
-	}
-
-	public int getMaxMoves() {
-		return maxMoves;
-	}
- 
-	public void printInfo() {
-		System.out.println("Next player: " +  (xIsNext ? "X": "O"));
-	}
+	} 
 
 	public void changePlayer() {
 		xIsNext = !xIsNext;
 	}
 
-	public boolean isX() {
-		return xIsNext;
-	}
-
-	public int currentPlayer() {
+	public int getId() {
 		return xIsNext ? 1: 0;
 	}
 
-	public String getWinner(int result) {
-		return "Winner: " + ((result == -1) ? "Draw": (result==1) ? "X": "O");
-	}
+	public void printInfo() {
+		System.out.println("Next player: " +  (xIsNext ? "X": "O"));
+	} 
 }
 
-final class Helper {
+final class Validator {
 	public static boolean isNumeric(String str) {
 		try {
 			Double.parseDouble(str);  
@@ -169,13 +175,13 @@ class Console {
 
 		input = in.nextLine();
 
-        while (!Helper.isNumeric(input)) {
+        while (!Validator.isNumeric(input)) {
         	System.out.print("Only numbers are allowed! " + out);
         	input = in.nextLine(); 
         }
 
         return Integer.parseInt(input);
-	}
+	} 
 }
 
 class Game {
@@ -189,45 +195,49 @@ class Game {
  		this.console = new Console();
 	}
 
-	public void reset(int boardSize) {
+	public void initialize(int boardSize) {
 		board = new Board(boardSize);
 		winner = new Winner(boardSize);
 		player = new Player(boardSize * boardSize);
 	}
 
-	public void run() {
+	public boolean over() {
+		if (board.getEmptySquaresCount() == 0) {
+			return true;
+		}
+		if (winner.calculateWinner(board.getSquares()) != -1) {
+			return true;
+		}
+		return false;
+	}
+
+	public void start() {
 		int boardSize = console.input("Choose the board size: ");
 
-		reset(boardSize);
-		
+		initialize(boardSize);
+
 		board.printBoard();
-		player.printInfo();
+		player.printInfo(); 
+ 
+		while(!over()) {
+			int number = console.input("Your choice: ");
 
-		int result;
-
-		while ((result = winner.calculateWinner(board.getSquares())) == -1) {
-			if (player.getMaxMoves() == 0) {
-    			break;
-    		}
-  
-			int squareNumber = console.input("Your choice: ");
-
-    		if (board.fillSquare(squareNumber, player.currentPlayer())) {
+    		if (board.fillSquare(number, player.getId())) {
 				player.changePlayer();
-				player.decrementMoves();
+				board.setEmptySquaresCount(-1);
     		} 
 
     		board.printBoard();
 			player.printInfo();
 		}
-
-		System.out.println(player.getWinner(result));
+  
+		winner.showResult();
 	}
 }
 
 public class TicTacToe {
 	public static void main(String[] args) {
 		Game game = new Game();
-		game.run(); 
+		game.start(); 
 	}
 }
